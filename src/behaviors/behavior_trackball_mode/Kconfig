@@ -1,0 +1,21 @@
+# Copyright (c) 2023-2025 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+config ZMK_BEHAVIOR_TRACKBALL_MODE
+    bool "Trackball Mode Behavior"
+    default y
+    depends on ZMK_BEHAVIORS && ZMK_TRACKBALL_PIM447
+    help
+      Enable the trackball mode behavior, allowing switching between
+      mouse movement and scrolling using the trackball.
+
+if ZMK_BEHAVIOR_TRACKBALL_MODE
+
+config ZMK_BEHAVIOR_TRACKBALL_MODE_DEBUG
+    bool "Debug logs for Trackball Mode Behavior"
+    default n
+    depends on ZMK_LOGGING
+    help
+      Enable debug logging for the trackball mode behavior.
+
+endif # ZMK_BEHAVIOR_TRACKBALL_MODE

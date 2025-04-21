@@ -4,5 +4,3 @@ build:
   kconfig: Kconfig
   settings:
     dts_root: .
-    include:
-      - include/

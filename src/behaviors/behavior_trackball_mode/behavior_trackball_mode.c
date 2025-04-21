@@ -8,12 +8,18 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
-
 #include <zmk/behavior.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/pointer_event.h>
+#include <zmk/endpoints.h> // Needed for device_is_ready check
 
-LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+// Use Kconfig to control logging level
+#if CONFIG_ZMK_BEHAVIOR_TRACKBALL_MODE_DEBUG
+#define LOG_LEVEL LOG_LEVEL_DBG
+#else
+#define LOG_LEVEL CONFIG_ZMK_LOG_LEVEL
+#endif
+LOG_MODULE_REGISTER(behavior_trackball_mode, LOG_LEVEL);
 
 enum trackball_mode
 {
@@ -31,14 +37,8 @@ struct behavior_trackball_mode_config
 struct behavior_trackball_mode_data
 {
     enum trackball_mode mode;
-    const struct device *trackball_dev;
+    const struct device *trackball_dev; // Keep track of the trackball device
 };
-
-#if DT_HAS_COMPAT_STATUS_OKAY(pimoroni_trackball_pim447)
-#define HAVE_TRACKBALL 1
-#else
-#define HAVE_TRACKBALL 0
-#endif
 
 static int on_trackball_mode_binding_pressed(struct zmk_behavior_binding *binding,
                                              struct zmk_behavior_binding_event event)
@@ -84,8 +84,7 @@ static int on_trackball_mode_binding_pressed(struct zmk_behavior_binding *bindin
     }
 
     // Update LED color based on the mode if we have a trackball device
-#if HAVE_TRACKBALL
-    if (mode_changed && data->trackball_dev != NULL)
+    if (mode_changed && data->trackball_dev != NULL && device_is_ready(data->trackball_dev))
     {
         // Get the LED color for the current mode
         uint8_t led_color = (data->mode == TRACKBALL_MODE_MOVE) ? config->led_mode_move : config->led_mode_scroll;
@@ -134,13 +133,18 @@ static int on_trackball_mode_binding_pressed(struct zmk_behavior_binding *bindin
             {.val1 = green, .val2 = 0},
             {.val1 = blue, .val2 = 0}};
 
-        sensor_attr_set(data->trackball_dev, SENSOR_CHAN_PROX, SENSOR_ATTR_CONFIGURATION, rgb);
-
-        LOG_DBG("Trackball mode changed to %s, LED color set to %d",
-                data->mode == TRACKBALL_MODE_MOVE ? "MOVE" : "SCROLL",
-                led_color);
+        int ret = sensor_attr_set(data->trackball_dev, SENSOR_CHAN_PROX, SENSOR_ATTR_CONFIGURATION, rgb);
+        if (ret != 0)
+        {
+            LOG_ERR("Failed to set LED color: %d", ret);
+        }
+        else
+        {
+            LOG_DBG("Trackball mode changed to %s, LED color set to %d",
+                    data->mode == TRACKBALL_MODE_MOVE ? "MOVE" : "SCROLL",
+                    led_color);
+        }
     }
-#endif
 
     // Report the current mode
     LOG_INF("Trackball mode: %s", data->mode == TRACKBALL_MODE_MOVE ? "MOVE" : "SCROLL");
@@ -162,22 +166,22 @@ static int behavior_trackball_mode_init(const struct device *dev)
     // Set the initial mode from device tree configuration
     data->mode = config->default_mode;
 
-    // Try to find the trackball device
-#if HAVE_TRACKBALL
+    // Try to find the trackball device - this behavior depends on the driver via Kconfig
+    // so the chosen device should exist if this behavior is enabled.
     data->trackball_dev = DEVICE_DT_GET_OR_NULL(DT_CHOSEN(zmk_pointing_device));
 
     if (data->trackball_dev == NULL)
     {
-        LOG_WRN("Trackball device not found");
+        LOG_WRN("Trackball device (chosen zmk,pointing-device) not found. LED control disabled.");
     }
     else if (!device_is_ready(data->trackball_dev))
     {
-        LOG_ERR("Trackball device not ready");
-        data->trackball_dev = NULL;
+        LOG_ERR("Trackball device %s is not ready. LED control disabled.", data->trackball_dev->name);
+        data->trackball_dev = NULL; // Mark as unusable
     }
     else
     {
-        LOG_INF("Found trackball device: %s", data->trackball_dev->name);
+        LOG_INF("Found trackball device: %s. Initializing LED.", data->trackball_dev->name);
 
         // Set initial LED color based on the default mode
         uint8_t led_color = (data->mode == TRACKBALL_MODE_MOVE) ? config->led_mode_move : config->led_mode_scroll;
@@ -226,9 +230,12 @@ static int behavior_trackball_mode_init(const struct device *dev)
             {.val1 = green, .val2 = 0},
             {.val1 = blue, .val2 = 0}};
 
-        sensor_attr_set(data->trackball_dev, SENSOR_CHAN_PROX, SENSOR_ATTR_CONFIGURATION, rgb);
+        int ret = sensor_attr_set(data->trackball_dev, SENSOR_CHAN_PROX, SENSOR_ATTR_CONFIGURATION, rgb);
+        if (ret != 0)
+        {
+            LOG_ERR("Failed to set initial LED color: %d", ret);
+        }
     }
-#endif
 
     LOG_INF("Trackball mode behavior initialized, default mode: %s",
             data->mode == TRACKBALL_MODE_MOVE ? "MOVE" : "SCROLL");
@@ -245,14 +252,14 @@ static const struct behavior_driver_api behavior_trackball_mode_driver_api = {
 // Device instance definition
 #define KP_INST(n)                                                                            \
     static struct behavior_trackball_mode_data behavior_trackball_mode_data_##n = {           \
-        .mode = TRACKBALL_MODE_MOVE,                                                          \
+        .mode = TRACKBALL_MODE_MOVE, /* Default mode, overridden by config */                 \
         .trackball_dev = NULL,                                                                \
     };                                                                                        \
                                                                                               \
     static const struct behavior_trackball_mode_config behavior_trackball_mode_config_##n = { \
         .default_mode = DT_INST_ENUM_IDX(n, default_mode),                                    \
-        .led_mode_move = DT_INST_PROP_OR(n, led_mode_move, 2),                                \
-        .led_mode_scroll = DT_INST_PROP_OR(n, led_mode_scroll, 3),                            \
+        .led_mode_move = DT_INST_PROP_OR(n, led_mode_move, 2), /* Default Green */            \
+        .led_mode_scroll = DT_INST_PROP_OR(n, led_mode_scroll, 3), /* Default Blue */         \
     };                                                                                        \
                                                                                               \
     DEVICE_DT_INST_DEFINE(n, behavior_trackball_mode_init, NULL,                              \

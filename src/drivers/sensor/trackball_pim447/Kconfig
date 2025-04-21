@@ -1,26 +1,18 @@
 # Copyright (c) 2023-2025 The ZMK Contributors
 # SPDX-License-Identifier: MIT
 
-menuconfig ZMK_TRACKBALL_PIM447
-    bool "Pimoroni PIM447 trackball"
-    default n
-    depends on I2C
-    depends on ZMK_POINTING
-    help
-      Enable I2C-based driver for Pimoroni PIM447 trackball.
+# Note: The main ZMK_TRACKBALL_PIM447 config is defined in the root Kconfig
+# This file should only contain options *dependent* on the main config.
 
 if ZMK_TRACKBALL_PIM447
 
 config ZMK_TRACKBALL_PIM447_DEBUG
     bool "Debug logs for Pimoroni PIM447 trackball"
     default n
+    depends on ZMK_LOGGING # Add dependency on logging subsystem
     help
       Enable debug logging for the Pimoroni trackball driver.
 
-config ZMK_BEHAVIOR_TRACKBALL_MODE
-    bool "Trackball mode behavior"
-    default y
-    help
-      Enable behavior to switch between cursor movement and scrolling modes for the trackball.
+# Behavior config moved to its own Kconfig file
 
 endif # ZMK_TRACKBALL_PIM447
