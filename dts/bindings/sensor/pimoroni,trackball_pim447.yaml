@@ -1,0 +1,63 @@
+# Copyright (c) 2023-2025 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: Pimoroni Trackball (PIM447) I2C sensor
+compatible: "pimoroni,trackball_pim447"
+
+include: i2c-device.yaml
+
+properties:
+  reg:
+    type: int
+    required: true
+    description: I2C device address (0x0A)
+  
+  sensitivity:
+    type: int
+    default: 64
+    description: Trackball sensitivity (1-255)
+    min: 1
+    max: 255
+
+  move-factor:
+    type: int
+    default: 1
+    description: Movement factor scaling (higher values = faster movement)
+    min: 1
+    max: 10
+
+  scroll-factor:
+    type: int
+    default: 1
+    description: Scroll factor scaling (higher values = faster scrolling)
+    min: 1
+    max: 10
+
+  led-red:
+    type: int
+    default: 0
+    description: Red component of LED color (0-255)
+    min: 0
+    max: 255
+
+  led-green:
+    type: int
+    default: 0
+    description: Green component of LED color (0-255)
+    min: 0
+    max: 255
+
+  led-blue:
+    type: int
+    default: 0
+    description: Blue component of LED color (0-255)
+    min: 0
+    max: 255
+
+  invert-x:
+    type: boolean
+    description: Invert X-axis direction
+
+  invert-y:
+    type: boolean
+    description: Invert Y-axis direction

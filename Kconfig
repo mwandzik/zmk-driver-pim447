@@ -1,0 +1,4 @@
+# Copyright (c) 2023-2025 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+rsource "src/drivers/sensor/trackball_pim447/Kconfig"
