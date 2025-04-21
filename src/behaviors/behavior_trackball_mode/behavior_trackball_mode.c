@@ -258,7 +258,7 @@ static const struct behavior_driver_api behavior_trackball_mode_driver_api = {
                                                                                               \
     static const struct behavior_trackball_mode_config behavior_trackball_mode_config_##n = { \
         .default_mode = DT_INST_ENUM_IDX(n, default_mode),                                    \
-        .led_mode_move = DT_INST_PROP_OR(n, led_mode_move, 2), /* Default Green */            \
+        .led_mode_move = DT_INST_PROP_OR(n, led_mode_move, 2),     /* Default Green */        \
         .led_mode_scroll = DT_INST_PROP_OR(n, led_mode_scroll, 3), /* Default Blue */         \
     };                                                                                        \
                                                                                               \
