@@ -13,6 +13,11 @@
 #include <zmk/events/pointer_event.h>
 #include <zmk/endpoints.h> // Needed for device_is_ready check
 
+// Re-define custom attributes locally if not using a shared header
+// These MUST match the definitions in the driver
+#define PIM447_ATTR_LED_RGB (SENSOR_ATTR_PRIV_START)
+#define PIM447_ATTR_MODE (SENSOR_ATTR_PRIV_START + 1)
+
 // Use Kconfig to control logging level
 #if CONFIG_ZMK_BEHAVIOR_TRACKBALL_MODE_DEBUG
 #define LOG_LEVEL LOG_LEVEL_DBG
@@ -83,10 +88,18 @@ static int on_trackball_mode_binding_pressed(struct zmk_behavior_binding *bindin
         return -ENOTSUP;
     }
 
-    // Update LED color based on the mode if we have a trackball device
+    // If mode changed, update driver and LED
     if (mode_changed && data->trackball_dev != NULL && device_is_ready(data->trackball_dev))
     {
-        // Get the LED color for the current mode
+        // 1. Tell the driver the new mode
+        struct sensor_value mode_val = {.val1 = (data->mode == TRACKBALL_MODE_SCROLL)}; // 0 for move, 1 for scroll
+        int ret = sensor_attr_set(data->trackball_dev, SENSOR_CHAN_ALL, PIM447_ATTR_MODE, &mode_val);
+        if (ret != 0)
+        {
+            LOG_ERR("Failed to set trackball driver mode: %d", ret);
+        }
+
+        // 2. Set the LED color based on the new mode
         uint8_t led_color = (data->mode == TRACKBALL_MODE_MOVE) ? config->led_mode_move : config->led_mode_scroll;
 
         // Map preset colors to RGB values
@@ -127,16 +140,17 @@ static int on_trackball_mode_binding_pressed(struct zmk_behavior_binding *bindin
             break;
         }
 
-        // Set the LED color using the sensor channel
+        // Use PIM447_ATTR_LED_RGB to set LED color
         struct sensor_value rgb[3] = {
             {.val1 = red, .val2 = 0},
             {.val1 = green, .val2 = 0},
             {.val1 = blue, .val2 = 0}};
 
-        int ret = sensor_attr_set(data->trackball_dev, SENSOR_CHAN_PROX, SENSOR_ATTR_CONFIGURATION, rgb);
+        // Channel is ignored by the driver for this custom attribute
+        ret = sensor_attr_set(data->trackball_dev, SENSOR_CHAN_ALL, PIM447_ATTR_LED_RGB, rgb);
         if (ret != 0)
         {
-            LOG_ERR("Failed to set LED color: %d", ret);
+            LOG_ERR("Failed to set LED color using custom attribute: %d", ret);
         }
         else
         {
@@ -172,18 +186,27 @@ static int behavior_trackball_mode_init(const struct device *dev)
 
     if (data->trackball_dev == NULL)
     {
-        LOG_WRN("Trackball device (chosen zmk,pointing-device) not found. LED control disabled.");
+        LOG_WRN("Trackball device (chosen zmk,pointing-device) not found. LED/Mode control disabled.");
     }
     else if (!device_is_ready(data->trackball_dev))
     {
-        LOG_ERR("Trackball device %s is not ready. LED control disabled.", data->trackball_dev->name);
+        LOG_ERR("Trackball device %s is not ready. LED/Mode control disabled.", data->trackball_dev->name);
         data->trackball_dev = NULL; // Mark as unusable
     }
     else
     {
-        LOG_INF("Found trackball device: %s. Initializing LED.", data->trackball_dev->name);
+        LOG_INF("Found trackball device: %s. Initializing driver mode and LED.", data->trackball_dev->name);
 
-        // Set initial LED color based on the default mode
+        // 1. Set initial driver mode
+        struct sensor_value mode_val = {.val1 = (data->mode == TRACKBALL_MODE_SCROLL)}; // 0 for move, 1 for scroll
+        int ret = sensor_attr_set(data->trackball_dev, SENSOR_CHAN_ALL, PIM447_ATTR_MODE, &mode_val);
+        if (ret != 0)
+        {
+            LOG_ERR("Failed to set initial trackball driver mode: %d", ret);
+            // Continue anyway, maybe LED will work
+        }
+
+        // 2. Set initial LED color based on the default mode
         uint8_t led_color = (data->mode == TRACKBALL_MODE_MOVE) ? config->led_mode_move : config->led_mode_scroll;
 
         // Map preset colors to RGB values
@@ -224,16 +247,17 @@ static int behavior_trackball_mode_init(const struct device *dev)
             break;
         }
 
-        // Set the initial LED color
+        // Set the initial LED color using custom attribute
         struct sensor_value rgb[3] = {
             {.val1 = red, .val2 = 0},
             {.val1 = green, .val2 = 0},
             {.val1 = blue, .val2 = 0}};
 
-        int ret = sensor_attr_set(data->trackball_dev, SENSOR_CHAN_PROX, SENSOR_ATTR_CONFIGURATION, rgb);
+        // Channel is ignored by the driver for this custom attribute
+        ret = sensor_attr_set(data->trackball_dev, SENSOR_CHAN_ALL, PIM447_ATTR_LED_RGB, rgb);
         if (ret != 0)
         {
-            LOG_ERR("Failed to set initial LED color: %d", ret);
+            LOG_ERR("Failed to set initial LED color using custom attribute: %d", ret);
         }
     }
 

@@ -10,6 +10,10 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/sys/byteorder.h>
 
+// Define custom sensor attributes (starting from private range)
+#define PIM447_ATTR_LED_RGB (SENSOR_ATTR_PRIV_START)
+#define PIM447_ATTR_MODE (SENSOR_ATTR_PRIV_START + 1)
+
 #define LOG_LEVEL CONFIG_SENSOR_LOG_LEVEL
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(trackball_pim447);
@@ -318,7 +322,7 @@ static int trackball_pim447_channel_get(const struct device *dev, enum sensor_ch
  * @brief Set attributes for the trackball
  *
  * @param dev Device instance
- * @param chan The sensor channel
+ * @param chan The sensor channel (ignored for custom attributes)
  * @param attr The attribute to set
  * @param val The value to set
  * @return 0 on success, negative error code otherwise
@@ -329,40 +333,44 @@ static int trackball_pim447_attr_set(const struct device *dev, enum sensor_chann
     struct trackball_pim447_data *data = dev->data;
     int ret = 0;
 
-    if (chan == SENSOR_CHAN_PROX)
+    // Handle custom attributes regardless of channel
+    switch (attr)
     {
-        // For PROX channel, handle special attributes
-        switch (attr)
+    case PIM447_ATTR_LED_RGB:
+        // Expect an array of 3 values for RGB
+        if (val != NULL)
         {
-        case SENSOR_ATTR_CONFIGURATION:
-            // This is used to configure the LED color
-            // Expect an array of 3 values for RGB
-            if (val != NULL)
-            {
-                const struct sensor_value *rgb_vals = val;
-                ret = trackball_pim447_set_led(dev,
-                                               rgb_vals[0].val1,
-                                               rgb_vals[1].val1,
-                                               rgb_vals[2].val1);
-            }
-            break;
-
-        case SENSOR_ATTR_FEATURE_MASK:
-            // This is used to set the mode (move=0, scroll=1)
-            if (val != NULL)
-            {
-                data->mode = val->val1 > 0 ? 1 : 0;
-                LOG_INF("Trackball mode set to %s", data->mode == 0 ? "MOVE" : "SCROLL");
-            }
-            break;
-
-        default:
-            return -ENOTSUP;
+            const struct sensor_value *rgb_vals = val;
+            // Clamp values to 0-255
+            uint8_t r = CLAMP(rgb_vals[0].val1, 0, 255);
+            uint8_t g = CLAMP(rgb_vals[1].val1, 0, 255);
+            uint8_t b = CLAMP(rgb_vals[2].val1, 0, 255);
+            ret = trackball_pim447_set_led(dev, r, g, b);
         }
-    }
-    else
-    {
-        return -ENOTSUP;
+        else
+        {
+            ret = -EINVAL;
+        }
+        break;
+
+    case PIM447_ATTR_MODE:
+        // Set the mode (move=0, scroll=1)
+        if (val != NULL)
+        {
+            data->mode = val->val1 > 0 ? 1 : 0;
+            LOG_INF("Trackball mode set to %s", data->mode == 0 ? "MOVE" : "SCROLL");
+        }
+        else
+        {
+            ret = -EINVAL;
+        }
+        break;
+
+    default:
+        // Allow standard attributes if needed in the future, otherwise return error
+        // if (chan == SENSOR_CHAN_PROX) { ... handle standard PROX attributes ... }
+        ret = -ENOTSUP;
+        break;
     }
 
     return ret;

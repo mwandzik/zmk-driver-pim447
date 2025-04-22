@@ -3,4 +3,4 @@ build:
   cmake: .
   kconfig: Kconfig
   settings:
-    dts_root: .
+    dts_root: dts
