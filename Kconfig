@@ -8,5 +8,5 @@ config ZMK_TRACKBALL_PIM447
 	help
 	  Enable support for the Pimoroni PIM447 trackball module driver
 
-rsource "src/drivers/sensor/trackball_pim447/Kconfig"
-rsource "src/behaviors/behavior_trackball_mode/Kconfig"
+source "src/drivers/sensor/trackball_pim447/Kconfig"
+source "src/behaviors/behavior_trackball_mode/Kconfig"

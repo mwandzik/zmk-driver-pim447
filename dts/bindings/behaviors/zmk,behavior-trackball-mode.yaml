@@ -15,17 +15,17 @@ properties:
     type: int
     const: 1
   default-mode:
-    type: string
+    type: int  # Changed from string to int
     enum:
-      - "move"
-      - "scroll"
-    default: "move"
-    description: Default mode (move or scroll)
+      - 0  # 0 = move
+      - 1  # 1 = scroll
+    default: 0 # Default to move mode
+    description: Default mode (0=move, 1=scroll)
   led-mode-move:
     type: int
-    default: 2
-    description: LED color for move mode (0=off, 1=red, 2=green, 3=blue, 4=yellow, 5=cyan, 6=magenta, 7=white)
+    default: 2 # Corresponds to LED_GREEN in trackball_pim447.h
+    description: LED color preset for move mode (see include/dt-bindings/zmk/trackball_pim447.h)
   led-mode-scroll:
     type: int
-    default: 3
-    description: LED color for scroll mode (0=off, 1=red, 2=green, 3=blue, 4=yellow, 5=cyan, 6=magenta, 7=white)
+    default: 3 # Corresponds to LED_BLUE in trackball_pim447.h
+    description: LED color preset for scroll mode (see include/dt-bindings/zmk/trackball_pim447.h)
